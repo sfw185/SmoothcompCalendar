@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
 COPY *.py .
+COPY templates/ templates/
 
 # Run server
 CMD ["python", "server.py"]

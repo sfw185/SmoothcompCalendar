@@ -9,11 +9,11 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
-from urllib.parse import quote
 
-from fastapi import FastAPI, Query, Request
-from fastapi.responses import Response, HTMLResponse
+from fastapi import FastAPI, Query
+from fastapi.responses import Response, FileResponse
 
 from scraper import SmoothcompScraper
 from cache import EventCache
@@ -22,6 +22,7 @@ from calendar_gen import generate_ical
 
 # Configuration
 AUTO_REFRESH_MINUTES = int(os.environ.get("AUTO_REFRESH_MINUTES", "60"))
+TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 # Global state
 cache: Optional[EventCache] = None
@@ -109,213 +110,19 @@ app = FastAPI(
 )
 
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """Home page with URL generator."""
-    base_url = str(request.base_url).rstrip('/')
-    host = request.url.netloc
-    countries = await cache.get_countries()
-    sports = await cache.get_sports()
-    event_count = await cache.get_event_count()
-    last_update = await cache.get_last_update()
+# ============================================================================
+# Pages
+# ============================================================================
 
-    status_text = "Scraping in progress..." if _scraping else f"{event_count} events"
-    update_text = last_update.strftime('%Y-%m-%d %H:%M UTC') if last_update else 'Never'
+@app.get("/")
+async def home():
+    """Serve the home page."""
+    return FileResponse(TEMPLATES_DIR / "index.html")
 
-    # Build country options
-    country_options = '<option value="">All Countries</option>\n'
-    for c in countries:
-        country_options += f'        <option value="{c["country"]}">{c["country"]} ({c["count"]})</option>\n'
 
-    # Build sport options
-    sport_options = '<option value="">All Sports</option>\n'
-    for s in sports:
-        sport_options += f'        <option value="{s["sport"]}">{s["sport"]} ({s["count"]})</option>\n'
-
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Smoothcomp Calendar</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-            * {{ box-sizing: border-box; }}
-            body {{
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                max-width: 700px;
-                margin: 0 auto;
-                padding: 20px;
-                background: #f5f5f5;
-            }}
-            h1 {{ color: #333; margin-bottom: 5px; }}
-            .status {{ color: #666; font-size: 14px; margin-bottom: 30px; }}
-            .card {{
-                background: white;
-                border-radius: 10px;
-                padding: 25px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                margin-bottom: 20px;
-            }}
-            label {{
-                display: block;
-                margin-bottom: 8px;
-                font-weight: 600;
-                color: #333;
-            }}
-            select {{
-                width: 100%;
-                padding: 12px;
-                font-size: 16px;
-                border: 2px solid #ddd;
-                border-radius: 8px;
-                margin-bottom: 20px;
-                background: white;
-            }}
-            select:focus {{
-                outline: none;
-                border-color: #007AFF;
-            }}
-            .url-box {{
-                background: #f8f8f8;
-                border: 2px solid #ddd;
-                border-radius: 8px;
-                padding: 15px;
-                font-family: monospace;
-                font-size: 13px;
-                word-break: break-all;
-                margin-bottom: 15px;
-            }}
-            .buttons {{
-                display: flex;
-                gap: 10px;
-            }}
-            button {{
-                flex: 1;
-                padding: 14px 20px;
-                font-size: 16px;
-                font-weight: 600;
-                border: none;
-                border-radius: 8px;
-                cursor: pointer;
-                transition: transform 0.1s, box-shadow 0.1s;
-            }}
-            button:active {{
-                transform: scale(0.98);
-            }}
-            .btn-primary {{
-                background: #007AFF;
-                color: white;
-            }}
-            .btn-secondary {{
-                background: #e0e0e0;
-                color: #333;
-            }}
-            .btn-primary:hover {{ background: #0056b3; }}
-            .btn-secondary:hover {{ background: #d0d0d0; }}
-            .info {{
-                font-size: 13px;
-                color: #666;
-                margin-top: 15px;
-                line-height: 1.5;
-            }}
-            .api-links {{
-                display: flex;
-                gap: 15px;
-                flex-wrap: wrap;
-            }}
-            .instructions h3 {{
-                font-size: 15px;
-                margin: 20px 0 10px 0;
-                color: #333;
-            }}
-            .instructions h3:first-child {{
-                margin-top: 10px;
-            }}
-            .instructions ol {{
-                margin: 0;
-                padding-left: 20px;
-                color: #555;
-                line-height: 1.7;
-            }}
-            .instructions a {{
-                color: #007AFF;
-            }}
-        </style>
-    </head>
-    <body>
-        <h1>Smoothcomp Calendar</h1>
-        <p class="status">{status_text} &bull; Last update: {update_text}</p>
-
-        <div class="card">
-            <label for="country">Country</label>
-            <select id="country" onchange="updateUrl()">
-                {country_options}
-            </select>
-
-            <label for="sport">Sport</label>
-            <select id="sport" onchange="updateUrl()">
-                {sport_options}
-            </select>
-
-            <label>Your Calendar URL</label>
-            <div class="url-box" id="urlBox">{base_url}/calendar.ics</div>
-
-            <button class="btn-primary" onclick="copyUrl()" style="width: 100%;">Copy URL</button>
-        </div>
-
-        <div class="card">
-            <label>How to Add to Your Calendar</label>
-
-            <div class="instructions">
-                <h3>Apple Calendar (Mac/iPhone)</h3>
-                <ol>
-                    <li>Copy the URL above</li>
-                    <li>Open Calendar app</li>
-                    <li>File &rarr; New Calendar Subscription (Mac) or<br>
-                        Settings &rarr; Calendar &rarr; Accounts &rarr; Add Account &rarr; Other &rarr; Add Subscribed Calendar (iPhone)</li>
-                    <li>Paste the URL and click Subscribe</li>
-                </ol>
-
-                <h3>Google Calendar</h3>
-                <ol>
-                    <li>Copy the URL above</li>
-                    <li>Open <a href="https://calendar.google.com" target="_blank">Google Calendar</a></li>
-                    <li>Click the + next to "Other calendars"</li>
-                    <li>Select "From URL"</li>
-                    <li>Paste the URL and click "Add calendar"</li>
-                </ol>
-            </div>
-        </div>
-
-        <script>
-            function updateUrl() {{
-                const country = document.getElementById('country').value;
-                const sport = document.getElementById('sport').value;
-
-                let url = '{base_url}/calendar.ics';
-                const params = [];
-
-                if (country) params.push('country=' + encodeURIComponent(country));
-                if (sport) params.push('sport=' + encodeURIComponent(sport));
-
-                if (params.length > 0) url += '?' + params.join('&');
-
-                document.getElementById('urlBox').textContent = url;
-            }}
-
-            function copyUrl() {{
-                const url = document.getElementById('urlBox').textContent;
-                navigator.clipboard.writeText(url).then(() => {{
-                    const btn = event.target;
-                    btn.textContent = 'Copied!';
-                    setTimeout(() => btn.textContent = 'Copy URL', 2000);
-                }});
-            }}
-        </script>
-    </body>
-    </html>
-    """
-
+# ============================================================================
+# Calendar Endpoints
+# ============================================================================
 
 @app.get("/calendar.ics")
 async def get_calendar(
@@ -351,6 +158,10 @@ async def get_calendar(
     )
 
 
+# ============================================================================
+# API Endpoints
+# ============================================================================
+
 @app.get("/events")
 async def get_events_json(
     country: Optional[str] = Query(None, description="Filter by country"),
@@ -368,10 +179,7 @@ async def get_events_json(
 
     return {
         "count": len(events),
-        "filters": {
-            "country": country,
-            "sport": sport
-        },
+        "filters": {"country": country, "sport": sport},
         "events": [e.to_dict() for e in events]
     }
 
@@ -379,9 +187,8 @@ async def get_events_json(
 @app.get("/countries")
 async def get_countries():
     """Get list of countries with event counts."""
-    countries = await cache.get_countries()
     return {
-        "total": len(countries),
+        "total": len(countries := await cache.get_countries()),
         "countries": countries
     }
 
@@ -389,11 +196,19 @@ async def get_countries():
 @app.get("/sports")
 async def get_sports():
     """Get list of sports with event counts."""
-    sports = await cache.get_sports()
     return {
-        "total": len(sports),
+        "total": len(sports := await cache.get_sports()),
         "sports": sports
     }
+
+
+@app.get("/filter-options")
+async def get_filter_options(
+    country: Optional[str] = Query(None, description="Current country filter"),
+    sport: Optional[str] = Query(None, description="Current sport filter")
+):
+    """Get filtered dropdown options based on current selection."""
+    return await cache.get_filter_options(country=country, sport=sport)
 
 
 @app.get("/status")
@@ -413,6 +228,10 @@ async def get_status():
         "scraping_in_progress": _scraping
     }
 
+
+# ============================================================================
+# Main
+# ============================================================================
 
 if __name__ == "__main__":
     import uvicorn

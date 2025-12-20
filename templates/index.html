@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smoothcomp Calendar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; margin-bottom: 5px; }
+        .status { color: #666; font-size: 14px; margin-bottom: 30px; }
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background: white;
+        }
+        select:focus {
+            outline: none;
+            border-color: #007AFF;
+        }
+        .url-box {
+            background: #f8f8f8;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            word-break: break-all;
+            margin-bottom: 15px;
+        }
+        button {
+            width: 100%;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+            background: #007AFF;
+            color: white;
+        }
+        button:hover { background: #0056b3; }
+        button:active { transform: scale(0.98); }
+        .event-count {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-top: 15px;
+        }
+        .event-count strong {
+            color: #007AFF;
+            font-size: 18px;
+        }
+        .instructions h3 {
+            font-size: 15px;
+            margin: 20px 0 10px 0;
+            color: #333;
+        }
+        .instructions h3:first-child {
+            margin-top: 10px;
+        }
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+            color: #555;
+            line-height: 1.7;
+        }
+        .instructions a {
+            color: #007AFF;
+        }
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Smoothcomp Calendar</h1>
+    <p class="status" id="status">Loading...</p>
+
+    <div class="card">
+        <label for="country">Country</label>
+        <select id="country" onchange="onFilterChange()">
+            <option value="">All Countries</option>
+        </select>
+
+        <label for="sport">Sport</label>
+        <select id="sport" onchange="onFilterChange()">
+            <option value="">All Sports</option>
+        </select>
+
+        <label>Your Calendar URL</label>
+        <div class="url-box" id="urlBox"></div>
+
+        <button onclick="copyUrl()">Copy URL</button>
+
+        <p class="event-count">
+            <strong id="eventCount">-</strong> events match your filters
+        </p>
+    </div>
+
+    <div class="card">
+        <label>How to Add to Your Calendar</label>
+
+        <div class="instructions">
+            <h3>Apple Calendar (Mac/iPhone)</h3>
+            <ol>
+                <li>Copy the URL above</li>
+                <li>Open Calendar app</li>
+                <li>File &rarr; New Calendar Subscription (Mac) or<br>
+                    Settings &rarr; Calendar &rarr; Accounts &rarr; Add Account &rarr; Other &rarr; Add Subscribed Calendar (iPhone)</li>
+                <li>Paste the URL and click Subscribe</li>
+            </ol>
+
+            <h3>Google Calendar</h3>
+            <ol>
+                <li>Copy the URL above</li>
+                <li>Open <a href="https://calendar.google.com" target="_blank">Google Calendar</a></li>
+                <li>Click the + next to "Other calendars"</li>
+                <li>Select "From URL"</li>
+                <li>Paste the URL and click "Add calendar"</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = window.location.origin;
+        let allCountries = [];
+        let allSports = [];
+
+        async function init() {
+            // Fetch initial data
+            const [statusRes, countriesRes, sportsRes] = await Promise.all([
+                fetch('/status').then(r => r.json()),
+                fetch('/countries').then(r => r.json()),
+                fetch('/sports').then(r => r.json())
+            ]);
+
+            // Update status
+            const statusEl = document.getElementById('status');
+            if (statusRes.scraping_in_progress) {
+                statusEl.textContent = `Scraping in progress... • ${statusRes.event_count} events`;
+            } else {
+                const lastUpdate = statusRes.last_update
+                    ? new Date(statusRes.last_update).toLocaleString()
+                    : 'Never';
+                statusEl.textContent = `${statusRes.event_count} events • Last update: ${lastUpdate}`;
+            }
+
+            // Store data
+            allCountries = countriesRes.countries;
+            allSports = sportsRes.sports;
+
+            // Populate dropdowns
+            populateDropdown('country', allCountries, 'country', 'All Countries');
+            populateDropdown('sport', allSports, 'sport', 'All Sports');
+
+            // Set initial URL
+            updateUrl();
+        }
+
+        function populateDropdown(selectId, items, valueKey, defaultLabel) {
+            const select = document.getElementById(selectId);
+            const currentValue = select.value;
+
+            select.innerHTML = `<option value="">${defaultLabel}</option>`;
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item[valueKey];
+                option.textContent = `${item[valueKey]} (${item.count})`;
+                select.appendChild(option);
+            });
+
+            // Restore selection if still valid
+            if (currentValue) {
+                select.value = currentValue;
+            }
+        }
+
+        async function onFilterChange() {
+            const country = document.getElementById('country').value;
+            const sport = document.getElementById('sport').value;
+
+            // Update URL immediately
+            updateUrl();
+
+            // Fetch filtered counts
+            await updateFilteredCounts(country, sport);
+        }
+
+        async function updateFilteredCounts(country, sport) {
+            // Build query params
+            const params = new URLSearchParams();
+            if (country) params.set('country', country);
+            if (sport) params.set('sport', sport);
+
+            const queryString = params.toString();
+            const url = '/filter-options' + (queryString ? '?' + queryString : '');
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+
+                // Update event count
+                document.getElementById('eventCount').textContent = data.event_count;
+
+                // Update sport dropdown with filtered counts (if country is selected)
+                if (country && data.sports) {
+                    populateDropdown('sport', data.sports, 'sport', 'All Sports');
+                } else if (!country) {
+                    populateDropdown('sport', allSports, 'sport', 'All Sports');
+                }
+
+                // Update country dropdown with filtered counts (if sport is selected)
+                if (sport && data.countries) {
+                    populateDropdown('country', data.countries, 'country', 'All Countries');
+                } else if (!sport) {
+                    populateDropdown('country', allCountries, 'country', 'All Countries');
+                }
+            } catch (e) {
+                console.error('Failed to fetch filtered counts:', e);
+            }
+        }
+
+        function updateUrl() {
+            const country = document.getElementById('country').value;
+            const sport = document.getElementById('sport').value;
+
+            let url = baseUrl + '/calendar.ics';
+            const params = [];
+
+            if (country) params.push('country=' + encodeURIComponent(country));
+            if (sport) params.push('sport=' + encodeURIComponent(sport));
+
+            if (params.length > 0) url += '?' + params.join('&');
+
+            document.getElementById('urlBox').textContent = url;
+        }
+
+        function copyUrl() {
+            const url = document.getElementById('urlBox').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                const btn = event.target;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy URL', 2000);
+            });
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

@@ -298,3 +298,69 @@ class EventCache:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch("SELECT id FROM events")
             return {row['id'] for row in rows}
+
+    async def get_filter_options(
+        self,
+        country: Optional[str] = None,
+        sport: Optional[str] = None
+    ) -> dict:
+        """
+        Get filtered counts for dropdowns.
+        Returns event count, and sports/countries filtered by current selection.
+        """
+        async with self._pool.acquire() as conn:
+            # Build base filter
+            where_clauses = []
+            params = []
+            param_count = 0
+
+            if country:
+                param_count += 1
+                where_clauses.append(f"LOWER(country) LIKE ${param_count}")
+                params.append(f"%{country.lower()}%")
+
+            if sport:
+                param_count += 1
+                where_clauses.append(f"LOWER(sport) LIKE ${param_count}")
+                params.append(f"%{sport.lower()}%")
+
+            where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+            # Get event count
+            count_row = await conn.fetchrow(
+                f"SELECT COUNT(*) as count FROM events WHERE {where_sql}",
+                *params
+            )
+            event_count = count_row['count']
+
+            # Get sports filtered by country (if country selected)
+            sports = []
+            if country:
+                sport_rows = await conn.fetch(f"""
+                    SELECT sport, COUNT(*) as count
+                    FROM events
+                    WHERE LOWER(country) LIKE $1
+                      AND sport IS NOT NULL AND sport != ''
+                    GROUP BY sport
+                    ORDER BY count DESC, sport
+                """, f"%{country.lower()}%")
+                sports = [{"sport": r['sport'], "count": r['count']} for r in sport_rows]
+
+            # Get countries filtered by sport (if sport selected)
+            countries = []
+            if sport:
+                country_rows = await conn.fetch(f"""
+                    SELECT country, COUNT(*) as count
+                    FROM events
+                    WHERE LOWER(sport) LIKE $1
+                      AND country IS NOT NULL AND country != ''
+                    GROUP BY country
+                    ORDER BY count DESC, country
+                """, f"%{sport.lower()}%")
+                countries = [{"country": r['country'], "count": r['count']} for r in country_rows]
+
+            return {
+                "event_count": event_count,
+                "sports": sports if country else None,
+                "countries": countries if sport else None
+            }
