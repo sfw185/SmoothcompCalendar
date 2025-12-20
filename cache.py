@@ -212,15 +212,12 @@ class EventCache:
         self,
         country: Optional[str] = None,
         sport: Optional[str] = None,
-        start_after: Optional[datetime] = None,
-        start_before: Optional[datetime] = None,
         limit: Optional[int] = None
     ) -> list[Event]:
         """
-        Get upcoming events from cache with optional filters.
-        Automatically excludes past events.
+        Get events from cache with optional filters.
         """
-        query = "SELECT * FROM events WHERE start_date >= NOW()"
+        query = "SELECT * FROM events WHERE 1=1"
         params = []
         param_count = 0
 
@@ -233,16 +230,6 @@ class EventCache:
             param_count += 1
             query += f" AND LOWER(sport) LIKE ${param_count}"
             params.append(f"%{sport.lower()}%")
-
-        if start_after:
-            param_count += 1
-            query += f" AND start_date >= ${param_count}"
-            params.append(start_after)
-
-        if start_before:
-            param_count += 1
-            query += f" AND start_date <= ${param_count}"
-            params.append(start_before)
 
         query += " ORDER BY start_date ASC"
 
@@ -272,22 +259,42 @@ class EventCache:
             for row in rows
         ]
 
-    async def get_countries(self) -> list[str]:
-        """Get list of unique countries with upcoming events."""
+    async def get_countries(self) -> list[dict]:
+        """Get list of countries with event counts."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT DISTINCT country FROM events
+                SELECT country, COUNT(*) as count
+                FROM events
                 WHERE country IS NOT NULL
                   AND country != ''
-                  AND start_date >= NOW()
-                ORDER BY country
+                GROUP BY country
+                ORDER BY count DESC, country
             """)
-            return [row['country'] for row in rows]
+            return [{"country": row['country'], "count": row['count']} for row in rows]
+
+    async def get_sports(self) -> list[dict]:
+        """Get list of sports with event counts."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT sport, COUNT(*) as count
+                FROM events
+                WHERE sport IS NOT NULL
+                  AND sport != ''
+                GROUP BY sport
+                ORDER BY count DESC, sport
+            """)
+            return [{"sport": row['sport'], "count": row['count']} for row in rows]
 
     async def get_event_count(self) -> int:
-        """Get total number of upcoming events in cache."""
+        """Get total number of events in cache."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT COUNT(*) as count FROM events WHERE start_date >= NOW()"
+                "SELECT COUNT(*) as count FROM events"
             )
             return row['count']
+
+    async def get_existing_event_ids(self) -> set[str]:
+        """Get set of all event IDs currently in cache."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("SELECT id FROM events")
+            return {row['id'] for row in rows}

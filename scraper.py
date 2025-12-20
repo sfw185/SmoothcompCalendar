@@ -192,27 +192,52 @@ class SmoothcompScraper:
             url=url
         )
 
-    async def scrape_events_iter(self, max_events: Optional[int] = None):
+    async def scrape_events_iter(
+        self,
+        max_events: Optional[int] = None,
+        existing_ids: Optional[set[str]] = None
+    ):
         """
         Async generator that yields events one at a time as they're scraped.
+        Prioritizes new events (not in existing_ids) first.
 
         Args:
             max_events: Maximum number of events to fetch (None for all)
+            existing_ids: Set of event IDs already in database (scraped last)
 
         Yields:
-            Tuple of (event, current_index, total_count)
+            Tuple of (event, current_index, total_count, is_new)
         """
         urls = await self.get_event_urls()
 
         if max_events:
             urls = urls[:max_events]
 
-        total = len(urls)
+        # Extract IDs and split into new vs existing
+        if existing_ids:
+            new_urls = []
+            update_urls = []
+            for url in urls:
+                event_id_match = re.search(r'/event/(\d+)', url)
+                event_id = event_id_match.group(1) if event_id_match else None
+                if event_id and event_id in existing_ids:
+                    update_urls.append(url)
+                else:
+                    new_urls.append(url)
+            # Process new events first, then updates
+            ordered_urls = new_urls + update_urls
+            new_count = len(new_urls)
+        else:
+            ordered_urls = urls
+            new_count = len(urls)
 
-        for i, url in enumerate(urls):
+        total = len(ordered_urls)
+
+        for i, url in enumerate(ordered_urls):
             event = await self.get_event_details(url)
             if event:
-                yield event, i + 1, total
+                is_new = i < new_count
+                yield event, i + 1, total, is_new
 
             # Rate limiting
             await asyncio.sleep(self.rate_limit)
@@ -220,7 +245,8 @@ class SmoothcompScraper:
     async def scrape_events(
         self,
         max_events: Optional[int] = None,
-        progress_callback=None
+        progress_callback=None,
+        existing_ids: Optional[set[str]] = None
     ) -> list[Event]:
         """
         Scrape all upcoming events (batch mode).
@@ -228,12 +254,13 @@ class SmoothcompScraper:
         Args:
             max_events: Maximum number of events to fetch (None for all)
             progress_callback: Optional callback(current, total) for progress
+            existing_ids: Set of event IDs already in database
 
         Returns:
             List of Event objects
         """
         events = []
-        async for event, current, total in self.scrape_events_iter(max_events):
+        async for event, current, total, is_new in self.scrape_events_iter(max_events, existing_ids):
             events.append(event)
             if progress_callback:
                 progress_callback(current, total)
