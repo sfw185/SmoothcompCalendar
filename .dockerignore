@@ -1,0 +1,13 @@
+# flyctl launch added from .gitignore
+**/__pycache__
+**/*.py[cod]
+**/venv
+**/.env
+**/*.db
+**/*.db-wal
+**/*.db-shm
+
+# flyctl launch added from venv/.gitignore
+# Created by venv; see https://docs.python.org/3/library/venv.html
+venv/**/*
+fly.toml
