@@ -61,7 +61,8 @@ async def main(limit: int | None = None):
             events.append(event)
 
             if current % 50 == 0 or current == total:
-                log(f"  Progress: {current}/{total} ({len(events)} future events)")
+                skipped = current - len(events)
+                log(f"  Progress: {current}/{total} scraped, {len(events)} kept ({skipped} past events skipped)")
 
     log(f"\nCollected {len(events)} upcoming events")
 
