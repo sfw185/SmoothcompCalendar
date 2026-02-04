@@ -100,13 +100,13 @@
     <div class="card">
         <label for="country">Country</label>
         <select id="country" onchange="onCountryChange()">
-            <option value="">All Countries</option>
+            <option value="" disabled selected>Select a country...</option>
         </select>
 
         <label>Your Calendar URL</label>
-        <div class="url-box" id="urlBox"></div>
+        <div class="url-box" id="urlBox">Select a country above</div>
 
-        <button onclick="copyUrl()">Copy URL</button>
+        <button onclick="copyUrl()" id="copyBtn" disabled>Copy URL</button>
 
         <p class="event-count">
             <strong id="eventCount">-</strong> events
@@ -149,7 +149,7 @@
                 // Update status
                 const statusEl = document.getElementById('status');
                 const lastUpdate = new Date(metadata.generated_at).toLocaleString();
-                statusEl.textContent = `${metadata.total_events} events | Updated: ${lastUpdate}`;
+                statusEl.textContent = `${metadata.total_events} events across ${metadata.countries.length} countries | Updated: ${lastUpdate}`;
 
                 // Populate country dropdown
                 const select = document.getElementById('country');
@@ -161,9 +161,6 @@
                     select.appendChild(option);
                 });
 
-                // Set initial state
-                updateUrl();
-                document.getElementById('eventCount').textContent = metadata.total_events;
             } catch (e) {
                 document.getElementById('status').textContent = 'Failed to load calendar data';
                 console.error(e);
@@ -171,35 +168,24 @@
         }
 
         function onCountryChange() {
-            updateUrl();
-
             const select = document.getElementById('country');
             const selectedOption = select.options[select.selectedIndex];
+            const slug = select.value;
 
-            if (select.value === '') {
-                document.getElementById('eventCount').textContent = metadata.total_events;
-            } else {
+            if (slug) {
+                const url = `${baseUrl}/calendars/${slug}.ics`;
+                document.getElementById('urlBox').textContent = url;
                 document.getElementById('eventCount').textContent = selectedOption.dataset.count;
+                document.getElementById('copyBtn').disabled = false;
             }
-        }
-
-        function updateUrl() {
-            const country = document.getElementById('country').value;
-
-            let url;
-            if (country) {
-                url = `${baseUrl}/calendars/${country}.ics`;
-            } else {
-                url = `${baseUrl}/calendar.ics`;
-            }
-
-            document.getElementById('urlBox').textContent = url;
         }
 
         function copyUrl() {
             const url = document.getElementById('urlBox').textContent;
+            if (!url || url === 'Select a country above') return;
+
             navigator.clipboard.writeText(url).then(() => {
-                const btn = event.target;
+                const btn = document.getElementById('copyBtn');
                 btn.textContent = 'Copied!';
                 setTimeout(() => btn.textContent = 'Copy URL', 2000);
             });

@@ -8,7 +8,5 @@ venv/
 .DS_Store
 
 # Generated static files (created by GitHub Actions)
-static/calendar.ics
 static/calendars/
-static/events.json
 static/metadata.json

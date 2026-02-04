@@ -26,6 +26,11 @@ from calendar_gen import generate_ical
 OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", "static"))
 
 
+def log(msg: str):
+    """Print with flush for streaming output in CI."""
+    print(msg, flush=True)
+
+
 def slugify(text: str) -> str:
     """Convert text to URL-safe slug."""
     text = text.lower().strip()
@@ -35,14 +40,14 @@ def slugify(text: str) -> str:
 
 
 async def main(limit: int | None = None):
-    print(f"Output directory: {OUTPUT_DIR}")
+    log(f"Output directory: {OUTPUT_DIR}")
     if limit:
-        print(f"Test mode: limiting to {limit} events")
+        log(f"Test mode: limiting to {limit} events")
     OUTPUT_DIR.mkdir(exist_ok=True)
     (OUTPUT_DIR / "calendars").mkdir(exist_ok=True)
 
     # Scrape all events
-    print("\nScraping events...")
+    log("\nScraping events...")
     events: list[Event] = []
 
     async with SmoothcompScraper(rate_limit=0.3) as scraper:
@@ -56,9 +61,9 @@ async def main(limit: int | None = None):
             events.append(event)
 
             if current % 50 == 0 or current == total:
-                print(f"  Progress: {current}/{total} ({len(events)} future events)")
+                log(f"  Progress: {current}/{total} ({len(events)} future events)")
 
-    print(f"\nCollected {len(events)} upcoming events")
+    log(f"\nCollected {len(events)} upcoming events")
 
     # Group events by country
     events_by_country: dict[str, list[Event]] = {}
@@ -68,15 +73,18 @@ async def main(limit: int | None = None):
             events_by_country[country] = []
         events_by_country[country].append(event)
 
-    # Sort countries by event count
-    countries_sorted = sorted(
-        events_by_country.keys(),
-        key=lambda c: len(events_by_country[c]),
-        reverse=True
-    )
+    # Sort countries by event count (exclude Unknown)
+    countries_sorted = [
+        c for c in sorted(
+            events_by_country.keys(),
+            key=lambda c: len(events_by_country[c]),
+            reverse=True
+        )
+        if c != "Unknown"
+    ]
 
     # Generate metadata.json
-    print("\nGenerating metadata.json...")
+    log("\nGenerating metadata.json...")
     metadata = {
         "generated_at": datetime.now().isoformat(),
         "total_events": len(events),
@@ -87,21 +95,14 @@ async def main(limit: int | None = None):
                 "count": len(events_by_country[country])
             }
             for country in countries_sorted
-            if country != "Unknown"
         ]
     }
 
     with open(OUTPUT_DIR / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)
 
-    # Generate main calendar (all events)
-    print("Generating calendar.ics (all events)...")
-    all_cal = generate_ical(events, calendar_name="Smoothcomp Events")
-    with open(OUTPUT_DIR / "calendar.ics", "wb") as f:
-        f.write(all_cal)
-
     # Generate per-country calendars
-    print(f"Generating {len(countries_sorted)} country calendars...")
+    log(f"Generating {len(countries_sorted)} country calendars...")
     for country in countries_sorted:
         country_events = events_by_country[country]
         slug = slugify(country)
@@ -111,20 +112,13 @@ async def main(limit: int | None = None):
         )
         with open(OUTPUT_DIR / "calendars" / f"{slug}.ics", "wb") as f:
             f.write(cal_data)
+        log(f"  {country}: {len(country_events)} events")
 
-    # Generate events.json (for potential future use)
-    print("Generating events.json...")
-    events_data = [e.to_dict() for e in events]
-    with open(OUTPUT_DIR / "events.json", "w") as f:
-        json.dump(events_data, f)
-
-    print(f"\nDone! Files written to {OUTPUT_DIR}/")
-    print(f"  - metadata.json")
-    print(f"  - calendar.ics ({len(events)} events)")
-    print(f"  - calendars/*.ics ({len(countries_sorted)} countries)")
-    print(f"  - events.json")
-    print(f"\nTo test locally:")
-    print(f"  python -m http.server 8000 -d {OUTPUT_DIR}")
+    log(f"\nDone! Files written to {OUTPUT_DIR}/")
+    log(f"  - metadata.json ({len(countries_sorted)} countries)")
+    log(f"  - calendars/*.ics")
+    log(f"\nTo test locally:")
+    log(f"  python -m http.server 8000 -d {OUTPUT_DIR}")
 
 
 if __name__ == "__main__":
