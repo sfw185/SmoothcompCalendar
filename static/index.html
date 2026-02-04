@@ -91,10 +91,6 @@
         .instructions a {
             color: #007AFF;
         }
-        .loading {
-            opacity: 0.5;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -103,13 +99,8 @@
 
     <div class="card">
         <label for="country">Country</label>
-        <select id="country" onchange="onFilterChange()">
+        <select id="country" onchange="onCountryChange()">
             <option value="">All Countries</option>
-        </select>
-
-        <label for="sport">Sport</label>
-        <select id="sport" onchange="onFilterChange()">
-            <option value="">All Sports</option>
         </select>
 
         <label>Your Calendar URL</label>
@@ -118,7 +109,7 @@
         <button onclick="copyUrl()">Copy URL</button>
 
         <p class="event-count">
-            <strong id="eventCount">-</strong> events match your filters
+            <strong id="eventCount">-</strong> events
         </p>
     </div>
 
@@ -148,114 +139,59 @@
 
     <script>
         const baseUrl = window.location.origin;
-        let allCountries = [];
-        let allSports = [];
+        let metadata = null;
 
         async function init() {
-            // Fetch initial data
-            const [statusRes, countriesRes, sportsRes] = await Promise.all([
-                fetch('/status').then(r => r.json()),
-                fetch('/countries').then(r => r.json()),
-                fetch('/sports').then(r => r.json())
-            ]);
-
-            // Update status
-            const statusEl = document.getElementById('status');
-            if (statusRes.scraping_in_progress) {
-                statusEl.textContent = `Scraping in progress... • ${statusRes.event_count} events`;
-            } else {
-                const lastUpdate = statusRes.last_update
-                    ? new Date(statusRes.last_update).toLocaleString()
-                    : 'Never';
-                statusEl.textContent = `${statusRes.event_count} events • Last update: ${lastUpdate}`;
-            }
-
-            // Store data
-            allCountries = countriesRes.countries;
-            allSports = sportsRes.sports;
-
-            // Populate dropdowns
-            populateDropdown('country', allCountries, 'country', 'All Countries');
-            populateDropdown('sport', allSports, 'sport', 'All Sports');
-
-            // Set initial URL
-            updateUrl();
-        }
-
-        function populateDropdown(selectId, items, valueKey, defaultLabel) {
-            const select = document.getElementById(selectId);
-            const currentValue = select.value;
-
-            select.innerHTML = `<option value="">${defaultLabel}</option>`;
-            items.forEach(item => {
-                const option = document.createElement('option');
-                option.value = item[valueKey];
-                option.textContent = `${item[valueKey]} (${item.count})`;
-                select.appendChild(option);
-            });
-
-            // Restore selection if still valid
-            if (currentValue) {
-                select.value = currentValue;
-            }
-        }
-
-        async function onFilterChange() {
-            const country = document.getElementById('country').value;
-            const sport = document.getElementById('sport').value;
-
-            // Update URL immediately
-            updateUrl();
-
-            // Fetch filtered counts
-            await updateFilteredCounts(country, sport);
-        }
-
-        async function updateFilteredCounts(country, sport) {
-            // Build query params
-            const params = new URLSearchParams();
-            if (country) params.set('country', country);
-            if (sport) params.set('sport', sport);
-
-            const queryString = params.toString();
-            const url = '/filter-options' + (queryString ? '?' + queryString : '');
-
             try {
-                const res = await fetch(url);
-                const data = await res.json();
+                const res = await fetch('metadata.json');
+                metadata = await res.json();
 
-                // Update event count
-                document.getElementById('eventCount').textContent = data.event_count;
+                // Update status
+                const statusEl = document.getElementById('status');
+                const lastUpdate = new Date(metadata.generated_at).toLocaleString();
+                statusEl.textContent = `${metadata.total_events} events | Updated: ${lastUpdate}`;
 
-                // Update sport dropdown with filtered counts (if country is selected)
-                if (country && data.sports) {
-                    populateDropdown('sport', data.sports, 'sport', 'All Sports');
-                } else if (!country) {
-                    populateDropdown('sport', allSports, 'sport', 'All Sports');
-                }
+                // Populate country dropdown
+                const select = document.getElementById('country');
+                metadata.countries.forEach(c => {
+                    const option = document.createElement('option');
+                    option.value = c.slug;
+                    option.textContent = `${c.name} (${c.count})`;
+                    option.dataset.count = c.count;
+                    select.appendChild(option);
+                });
 
-                // Update country dropdown with filtered counts (if sport is selected)
-                if (sport && data.countries) {
-                    populateDropdown('country', data.countries, 'country', 'All Countries');
-                } else if (!sport) {
-                    populateDropdown('country', allCountries, 'country', 'All Countries');
-                }
+                // Set initial state
+                updateUrl();
+                document.getElementById('eventCount').textContent = metadata.total_events;
             } catch (e) {
-                console.error('Failed to fetch filtered counts:', e);
+                document.getElementById('status').textContent = 'Failed to load calendar data';
+                console.error(e);
+            }
+        }
+
+        function onCountryChange() {
+            updateUrl();
+
+            const select = document.getElementById('country');
+            const selectedOption = select.options[select.selectedIndex];
+
+            if (select.value === '') {
+                document.getElementById('eventCount').textContent = metadata.total_events;
+            } else {
+                document.getElementById('eventCount').textContent = selectedOption.dataset.count;
             }
         }
 
         function updateUrl() {
             const country = document.getElementById('country').value;
-            const sport = document.getElementById('sport').value;
 
-            let url = baseUrl + '/calendar.ics';
-            const params = [];
-
-            if (country) params.push('country=' + encodeURIComponent(country));
-            if (sport) params.push('sport=' + encodeURIComponent(sport));
-
-            if (params.length > 0) url += '?' + params.join('&');
+            let url;
+            if (country) {
+                url = `${baseUrl}/calendars/${country}.ics`;
+            } else {
+                url = `${baseUrl}/calendar.ics`;
+            }
 
             document.getElementById('urlBox').textContent = url;
         }
@@ -269,7 +205,6 @@
             });
         }
 
-        // Initialize on load
         init();
     </script>
 </body>
