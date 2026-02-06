@@ -138,7 +138,10 @@
     </div>
 
     <script>
-        const baseUrl = window.location.origin;
+        const basePath = window.location.pathname.endsWith('/')
+            ? window.location.pathname.slice(0, -1)
+            : window.location.pathname.replace(/\/[^\/]*$/, '');
+        const baseUrl = window.location.origin + basePath;
         let metadata = null;
 
         async function init() {
