@@ -26,9 +26,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  # Phase 1: Deploy static files instantly using cached calendar data
+  deploy-static:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore cached calendar data
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            static/calendars
+            static/metadata.json
+          key: calendar-data-${{ github.run_id }}
+          restore-keys: calendar-data-
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: static/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Phase 2: Scrape fresh data and redeploy
+  scrape-and-deploy:
+    needs: deploy-static
+    if: always() && !cancelled() && needs.deploy-static.result != 'failure'
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout
@@ -46,19 +82,19 @@ jobs:
       - name: Generate static files
         run: python generate_static.py
 
+      - name: Cache calendar data
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            static/calendars
+            static/metadata.json
+          key: calendar-data-${{ github.run_id }}
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: static/
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
