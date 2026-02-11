@@ -223,7 +223,7 @@
 
                 document.getElementById('addGoogle').style.display = '';
                 document.getElementById('addGoogle').href =
-                    'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(url);
+                    'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(url.replace(/^https?:/, 'webcal:'));
             }
         }
 
