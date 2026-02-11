@@ -80,7 +80,6 @@
             margin-top: 12px;
         }
         button {
-            flex: 1;
             padding: 12px 16px;
             font-size: 14px;
             font-weight: 600;
@@ -103,37 +102,28 @@
             background: #e8e8e8;
             color: #333;
         }
-        .event-count {
-            text-align: center;
+        .actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 12px;
+        }
+        .quick-add-link {
             font-size: 13px;
-            color: #999;
-            margin-top: 16px;
-        }
-        .event-count strong {
-            color: #333;
-            font-size: 20px;
-            font-weight: 700;
-            display: block;
-            margin-bottom: 2px;
-        }
-        .instructions {
-            line-height: 1.7;
-        }
-        .instructions h3 {
-            font-size: 14px;
-            font-weight: 600;
-            margin: 16px 0 8px;
-            color: #333;
-        }
-        .instructions h3:first-child { margin-top: 0; }
-        .instructions ol {
-            padding-left: 20px;
-            color: #666;
-            font-size: 14px;
-        }
-        .instructions a {
-            color: #333;
             font-weight: 500;
+            color: #555;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .quick-add-link:hover { color: #111; }
+        .instructions p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+        .instructions em {
+            font-style: normal;
+            color: #333;
         }
         footer {
             margin-top: 32px;
@@ -166,35 +156,15 @@
             <div class="url-box placeholder" id="urlBox">Select a country to get your subscription URL</div>
         </div>
 
-        <div class="actions">
+        <div class="actions" id="actions">
             <button class="btn-primary" onclick="copyUrl()" id="copyBtn" disabled>Copy URL</button>
-            <button class="btn-secondary" onclick="subscribe()" id="subBtn" disabled>Subscribe</button>
+            <a href="#" id="addGoogle" class="quick-add-link" style="display:none" target="_blank">Add to Google Calendar (desktop)</a>
         </div>
-
-        <p class="event-count" id="eventCountBlock" style="display:none">
-            <strong id="eventCount">-</strong> upcoming events
-        </p>
     </div>
 
     <div class="card instructions">
-        <label>How to subscribe</label>
-
-        <h3>Apple Calendar (Mac/iPhone)</h3>
-        <ol>
-            <li>Copy the URL above</li>
-            <li>Open Calendar app</li>
-            <li>File &rarr; New Calendar Subscription (Mac) or<br>
-                Settings &rarr; Calendar &rarr; Accounts &rarr; Add Subscribed Calendar (iPhone)</li>
-            <li>Paste the URL and subscribe</li>
-        </ol>
-
-        <h3>Google Calendar</h3>
-        <ol>
-            <li>Copy the URL above</li>
-            <li>Open <a href="https://calendar.google.com" target="_blank">Google Calendar</a></li>
-            <li>Click + next to "Other calendars" &rarr; From URL</li>
-            <li>Paste the URL and add</li>
-        </ol>
+        <label>Other calendar apps</label>
+        <p>Google Calendar subscriptions can only be added from the desktop site, but once added they'll sync to your phone automatically. For other apps, copy the URL and look for an "Add calendar by URL" or "Subscribe to calendar" option. If you're unsure, search for <em>"subscribe to ics calendar"</em> + your app name.</p>
     </div>
 
     <footer>
@@ -249,10 +219,11 @@
                 const urlBox = document.getElementById('urlBox');
                 urlBox.textContent = url;
                 urlBox.classList.remove('placeholder');
-                document.getElementById('eventCount').textContent = selectedOption.dataset.count;
-                document.getElementById('eventCountBlock').style.display = '';
                 document.getElementById('copyBtn').disabled = false;
-                document.getElementById('subBtn').disabled = false;
+
+                document.getElementById('addGoogle').style.display = '';
+                document.getElementById('addGoogle').href =
+                    'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(url);
             }
         }
 
@@ -265,12 +236,6 @@
                 btn.textContent = 'Copied!';
                 setTimeout(() => btn.textContent = 'Copy URL', 2000);
             });
-        }
-
-        function subscribe() {
-            const url = getCalendarUrl();
-            if (!url) return;
-            window.location.href = url.replace(/^https?:/, 'webcal:');
         }
 
         init();
