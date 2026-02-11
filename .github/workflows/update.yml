@@ -19,6 +19,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 # Only one deployment at a time
 concurrency:
@@ -90,11 +91,16 @@ jobs:
             static/metadata.json
           key: calendar-data-${{ github.run_id }}
 
+      - name: Delete previous pages artifact
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: github-pages
+          failOnError: false
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: static/
-          overwrite: true
 
       - name: Deploy to GitHub Pages
         id: deployment
