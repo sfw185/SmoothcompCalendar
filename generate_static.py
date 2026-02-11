@@ -52,17 +52,10 @@ async def main(limit: int | None = None):
 
     async with SmoothcompScraper(rate_limit=0.3) as scraper:
         async for event, current, total, is_new in scraper.scrape_events_iter(max_events=limit):
-            # Skip past events
-            if event.start_date:
-                event_start = event.start_date.replace(tzinfo=None) if event.start_date.tzinfo else event.start_date
-                if event_start < datetime.now():
-                    continue
-
             events.append(event)
 
             if current % 50 == 0 or current == total:
-                skipped = current - len(events)
-                log(f"  Progress: {current}/{total} scraped, {len(events)} kept ({skipped} past events skipped)")
+                log(f"  Progress: {current}/{total}")
 
     log(f"\nCollected {len(events)} upcoming events")
 
