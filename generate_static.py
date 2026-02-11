@@ -109,7 +109,7 @@ async def main(limit: int | None = None):
         slug = slugify(country)
         cal_data = generate_ical(
             country_events,
-            calendar_name=f"Smoothcomp {country} Events"
+            calendar_name=f"BJJ Calendar - {country}"
         )
         with open(OUTPUT_DIR / "calendars" / f"{slug}.ics", "wb") as f:
             f.write(cal_data)

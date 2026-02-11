@@ -14,7 +14,7 @@ from scraper import Event
 
 def generate_ical(
     events: list[Event],
-    calendar_name: str = "Smoothcomp Events",
+    calendar_name: str = "BJJ Calendar",
     ttl_minutes: int = 360
 ) -> bytes:
     """
@@ -31,7 +31,7 @@ def generate_ical(
     cal = Calendar()
 
     # Calendar metadata
-    cal.add('prodid', '-//Smoothcomp Calendar//smoothcomp.com//')
+    cal.add('prodid', '-//BJJ Calendar//bjjcalendar//')
     cal.add('version', '2.0')
     cal.add('calscale', 'GREGORIAN')
     cal.add('method', 'PUBLISH')

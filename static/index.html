@@ -1,101 +1,159 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Smoothcomp Calendar</title>
+    <title>BJJ Calendar</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 700px;
+            max-width: 640px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 40px 20px 60px;
             background: #f5f5f5;
+            color: #333;
         }
-        h1 { color: #333; margin-bottom: 5px; }
-        .status { color: #666; font-size: 14px; margin-bottom: 30px; }
+        header {
+            margin-bottom: 32px;
+        }
+        h1 {
+            font-size: 28px;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+        }
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+        }
         .card {
             background: white;
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
         }
         label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-weight: 600;
-            color: #333;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #999;
         }
         select {
             width: 100%;
             padding: 12px;
             font-size: 16px;
-            border: 2px solid #ddd;
+            border: 2px solid #e8e8e8;
             border-radius: 8px;
-            margin-bottom: 20px;
             background: white;
+            color: #333;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' fill='none' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
         }
         select:focus {
             outline: none;
-            border-color: #007AFF;
+            border-color: #333;
+        }
+        .url-row {
+            margin-top: 20px;
         }
         .url-box {
-            background: #f8f8f8;
-            border: 2px solid #ddd;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
             border-radius: 8px;
-            padding: 15px;
-            font-family: monospace;
-            font-size: 13px;
+            padding: 12px 14px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
             word-break: break-all;
-            margin-bottom: 15px;
+            color: #555;
+            min-height: 42px;
+            line-height: 1.5;
+        }
+        .url-box.placeholder { color: #bbb; }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
         }
         button {
-            width: 100%;
-            padding: 14px 20px;
-            font-size: 16px;
+            flex: 1;
+            padding: 12px 16px;
+            font-size: 14px;
             font-weight: 600;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.1s;
-            background: #007AFF;
+            transition: opacity 0.15s;
+        }
+        button:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+        button:not(:disabled):hover { opacity: 0.85; }
+        button:not(:disabled):active { transform: scale(0.98); }
+        .btn-primary {
+            background: #333;
             color: white;
         }
-        button:hover { background: #0056b3; }
-        button:active { transform: scale(0.98); }
-        .event-count {
-            text-align: center;
-            font-size: 14px;
-            color: #666;
-            margin-top: 15px;
-        }
-        .event-count strong {
-            color: #007AFF;
-            font-size: 18px;
-        }
-        .instructions h3 {
-            font-size: 15px;
-            margin: 20px 0 10px 0;
+        .btn-secondary {
+            background: #e8e8e8;
             color: #333;
         }
-        .instructions h3:first-child {
-            margin-top: 10px;
+        .event-count {
+            text-align: center;
+            font-size: 13px;
+            color: #999;
+            margin-top: 16px;
         }
-        .instructions ol {
-            margin: 0;
-            padding-left: 20px;
-            color: #555;
+        .event-count strong {
+            color: #333;
+            font-size: 20px;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .instructions {
             line-height: 1.7;
         }
+        .instructions h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 16px 0 8px;
+            color: #333;
+        }
+        .instructions h3:first-child { margin-top: 0; }
+        .instructions ol {
+            padding-left: 20px;
+            color: #666;
+            font-size: 14px;
+        }
         .instructions a {
-            color: #007AFF;
+            color: #333;
+            font-weight: 500;
+        }
+        footer {
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid #e8e8e8;
+            font-size: 12px;
+            color: #aaa;
+            line-height: 1.6;
+            text-align: center;
+        }
+        footer a {
+            color: #999;
         }
     </style>
 </head>
 <body>
-    <h1>Smoothcomp Calendar</h1>
-    <p class="status" id="status">Loading...</p>
+    <header>
+        <h1>BJJ Calendar</h1>
+        <p class="subtitle" id="status">Loading...</p>
+    </header>
 
     <div class="card">
         <label for="country">Country</label>
@@ -103,39 +161,46 @@
             <option value="" disabled selected>Select a country...</option>
         </select>
 
-        <label>Your Calendar URL</label>
-        <div class="url-box" id="urlBox">Select a country above</div>
+        <div class="url-row">
+            <label>Calendar URL</label>
+            <div class="url-box placeholder" id="urlBox">Select a country to get your subscription URL</div>
+        </div>
 
-        <button onclick="copyUrl()" id="copyBtn" disabled>Copy URL</button>
+        <div class="actions">
+            <button class="btn-primary" onclick="copyUrl()" id="copyBtn" disabled>Copy URL</button>
+            <button class="btn-secondary" onclick="subscribe()" id="subBtn" disabled>Subscribe</button>
+        </div>
 
-        <p class="event-count">
-            <strong id="eventCount">-</strong> events
+        <p class="event-count" id="eventCountBlock" style="display:none">
+            <strong id="eventCount">-</strong> upcoming events
         </p>
     </div>
 
-    <div class="card">
-        <label>How to Add to Your Calendar</label>
+    <div class="card instructions">
+        <label>How to subscribe</label>
 
-        <div class="instructions">
-            <h3>Apple Calendar (Mac/iPhone)</h3>
-            <ol>
-                <li>Copy the URL above</li>
-                <li>Open Calendar app</li>
-                <li>File &rarr; New Calendar Subscription (Mac) or<br>
-                    Settings &rarr; Calendar &rarr; Accounts &rarr; Add Account &rarr; Other &rarr; Add Subscribed Calendar (iPhone)</li>
-                <li>Paste the URL and click Subscribe</li>
-            </ol>
+        <h3>Apple Calendar (Mac/iPhone)</h3>
+        <ol>
+            <li>Copy the URL above</li>
+            <li>Open Calendar app</li>
+            <li>File &rarr; New Calendar Subscription (Mac) or<br>
+                Settings &rarr; Calendar &rarr; Accounts &rarr; Add Subscribed Calendar (iPhone)</li>
+            <li>Paste the URL and subscribe</li>
+        </ol>
 
-            <h3>Google Calendar</h3>
-            <ol>
-                <li>Copy the URL above</li>
-                <li>Open <a href="https://calendar.google.com" target="_blank">Google Calendar</a></li>
-                <li>Click the + next to "Other calendars"</li>
-                <li>Select "From URL"</li>
-                <li>Paste the URL and click "Add calendar"</li>
-            </ol>
-        </div>
+        <h3>Google Calendar</h3>
+        <ol>
+            <li>Copy the URL above</li>
+            <li>Open <a href="https://calendar.google.com" target="_blank">Google Calendar</a></li>
+            <li>Click + next to "Other calendars" &rarr; From URL</li>
+            <li>Paste the URL and add</li>
+        </ol>
     </div>
+
+    <footer>
+        Event data sourced from <a href="https://smoothcomp.com" target="_blank">Smoothcomp</a>.
+        This project is independent and not affiliated with or endorsed by Smoothcomp.
+    </footer>
 
     <script>
         const basePath = window.location.pathname.endsWith('/')
@@ -149,12 +214,12 @@
                 const res = await fetch('metadata.json');
                 metadata = await res.json();
 
-                // Update status
                 const statusEl = document.getElementById('status');
-                const lastUpdate = new Date(metadata.generated_at).toLocaleString();
-                statusEl.textContent = `${metadata.total_events} events across ${metadata.countries.length} countries | Updated: ${lastUpdate}`;
+                const lastUpdate = new Date(metadata.generated_at).toLocaleDateString(undefined, {
+                    year: 'numeric', month: 'short', day: 'numeric'
+                });
+                statusEl.textContent = `${metadata.total_events} events in ${metadata.countries.length} countries \u00b7 Updated ${lastUpdate}`;
 
-                // Populate country dropdown
                 const select = document.getElementById('country');
                 metadata.countries.forEach(c => {
                     const option = document.createElement('option');
@@ -170,28 +235,42 @@
             }
         }
 
+        function getCalendarUrl() {
+            const slug = document.getElementById('country').value;
+            return slug ? `${baseUrl}/calendars/${slug}.ics` : null;
+        }
+
         function onCountryChange() {
             const select = document.getElementById('country');
             const selectedOption = select.options[select.selectedIndex];
-            const slug = select.value;
+            const url = getCalendarUrl();
 
-            if (slug) {
-                const url = `${baseUrl}/calendars/${slug}.ics`;
-                document.getElementById('urlBox').textContent = url;
+            if (url) {
+                const urlBox = document.getElementById('urlBox');
+                urlBox.textContent = url;
+                urlBox.classList.remove('placeholder');
                 document.getElementById('eventCount').textContent = selectedOption.dataset.count;
+                document.getElementById('eventCountBlock').style.display = '';
                 document.getElementById('copyBtn').disabled = false;
+                document.getElementById('subBtn').disabled = false;
             }
         }
 
         function copyUrl() {
-            const url = document.getElementById('urlBox').textContent;
-            if (!url || url === 'Select a country above') return;
+            const url = getCalendarUrl();
+            if (!url) return;
 
             navigator.clipboard.writeText(url).then(() => {
                 const btn = document.getElementById('copyBtn');
                 btn.textContent = 'Copied!';
                 setTimeout(() => btn.textContent = 'Copy URL', 2000);
             });
+        }
+
+        function subscribe() {
+            const url = getCalendarUrl();
+            if (!url) return;
+            window.location.href = url.replace(/^https?:/, 'webcal:');
         }
 
         init();

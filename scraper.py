@@ -70,30 +70,59 @@ class SmoothcompScraper:
 
     async def get_event_urls(self) -> list[str]:
         """
-        Fetch the main events page and extract all event URLs from JSON-LD.
+        Fetch the main events page and return only BJJ event URLs.
+
+        Parses the embedded events data and category mapping to filter
+        events whose categoryGroups include any Jiu-Jitsu category.
 
         Returns:
-            List of event URLs
+            List of event URLs (BJJ only)
         """
         async with self._session.get(self.EVENTS_URL) as resp:
             html = await resp.text()
 
-        soup = BeautifulSoup(html, 'html.parser')
+        # Extract category mapping from Vue component attribute
+        # Format: :category-groups="{...html-encoded JSON...}"
+        bjj_category_ids = set()
+        cat_match = re.search(r':category-groups="(.*?)"', html)
+        if cat_match:
+            import html as html_mod
+            cat_data = json.loads(html_mod.unescape(cat_match.group(1)))
+            for group_categories in cat_data.values():
+                for cat in group_categories:
+                    if 'Jiu-Jitsu' in cat.get('name', ''):
+                        bjj_category_ids.add(str(cat['id']))
 
-        # Find JSON-LD script tag
-        for script in soup.find_all('script', type='application/ld+json'):
-            try:
-                data = json.loads(script.string)
-                if data.get('@type') == 'ItemList':
-                    return [
-                        item['url']
-                        for item in data.get('itemListElement', [])
-                        if 'url' in item
-                    ]
-            except (json.JSONDecodeError, TypeError):
-                continue
+        if not bjj_category_ids:
+            print("Warning: could not find Jiu-Jitsu category IDs, falling back to unfiltered")
+            # Fallback to JSON-LD (unfiltered)
+            soup = BeautifulSoup(html, 'html.parser')
+            for script in soup.find_all('script', type='application/ld+json'):
+                try:
+                    data = json.loads(script.string)
+                    if data.get('@type') == 'ItemList':
+                        return [item['url'] for item in data.get('itemListElement', []) if 'url' in item]
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            return []
 
-        return []
+        print(f"  BJJ category IDs: {bjj_category_ids}")
+
+        # Extract the var events = [...] array
+        events_match = re.search(r'var events = (\[.*?\])\s*\n', html, re.DOTALL)
+        if not events_match:
+            print("Warning: could not parse events array from page")
+            return []
+
+        all_events = json.loads(events_match.group(1))
+        bjj_events = [
+            e for e in all_events
+            if any(cg in bjj_category_ids for cg in e.get('categoryGroups', []))
+        ]
+
+        print(f"  Filtered {len(bjj_events)} BJJ events from {len(all_events)} total")
+
+        return [e['url'] for e in bjj_events]
 
     async def get_event_details(self, url: str) -> Optional[Event]:
         """
